@@ -1,56 +1,55 @@
-const express = require('express');
-const { createServer } = require('http');
-const { parse } = require('querystring');
 const { Handler } = require('@netlify/functions');
 
-const app = express();
-const PORT = 3000;
-
-app.use(express.json());
-
-app.get('/bfhl', (req, res) => {
-  res.status(200).json({ operation_code: 1 });
-});
-
-app.post('/bfhl', (req, res) => {
-  const { status, userID, collegeEmail, collegeRollNumber, numbers, alphabets } = req.body;
-
-  if (!status || !userID || !collegeEmail || !collegeRollNumber || !Array.isArray(numbers) || !Array.isArray(alphabets)) {
-    return res.status(400).json({ is_success: false, message: 'Invalid input data' });
+const handler = async (event, context) => {
+  const { httpMethod, path, headers, body } = event;
+  
+  // Handle GET request
+  if (httpMethod === 'GET' && path === '/bfhl') {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ operation_code: 1 }),
+    };
   }
 
-  const user_id = `${userID.toLowerCase().replace(/\s/g, '_')}_${new Date().toLocaleDateString('en-GB').split('/').reverse().join('')}`;
-  
-  res.status(200).json({
-    status,
-    user_id,
-    collegeEmail,
-    collegeRollNumber,
-    numbers,
-    alphabets,
-    is_success: true
-  });
-});
+  // Handle POST request
+  if (httpMethod === 'POST' && path === '/bfhl') {
+    try {
+      const { status, userID, collegeEmail, collegeRollNumber, numbers, alphabets } = JSON.parse(body);
 
-const server = createServer(app);
-exports.handler = async (event, context) => {
-  const req = { method: event.httpMethod, url: event.path, headers: event.headers, body: event.body };
-  const res = {
-    statusCode: 200,
-    headers: {},
-    body: '',
-    setHeader: (name, value) => { res.headers[name] = value; },
-    end: (body) => { res.body = body; }
+      if (!status || !userID || !collegeEmail || !collegeRollNumber || !Array.isArray(numbers) || !Array.isArray(alphabets)) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ is_success: false, message: 'Invalid input data' }),
+        };
+      }
+
+      const user_id = `${userID.toLowerCase().replace(/\s/g, '_')}_${new Date().toLocaleDateString('en-GB').split('/').reverse().join('')}`;
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          status,
+          user_id,
+          collegeEmail,
+          collegeRollNumber,
+          numbers,
+          alphabets,
+          is_success: true,
+        }),
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ is_success: false, message: 'Server error' }),
+      };
+    }
+  }
+
+  // Return 404 for other paths
+  return {
+    statusCode: 404,
+    body: JSON.stringify({ message: 'Not Found' }),
   };
-
-  return new Promise((resolve) => {
-    server.emit(req.method, req, res);
-    res.on('finish', () => {
-      resolve({
-        statusCode: res.statusCode,
-        headers: res.headers,
-        body: res.body
-      });
-    });
-  });
 };
+
+module.exports = { handler };
